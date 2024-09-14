@@ -1,0 +1,10 @@
+.DS_Store
+._.DS_Store
+*.swp
+._*
+*.var
+*.bak
+*.tbl
+autosave.halscope
+resources*
+.vcp*

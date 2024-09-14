@@ -1,0 +1,50 @@
+# Put HAL commands in this file that you want to run before the GUI loads
+
+# Pause sequence
+#   Stop G code execution immediates
+#   Can resume program after last finished command
+#   stop spindle
+#   raise Z to max height
+#   go back to home
+
+# Unpause sequence
+#   move Z above xy location of start of next program line
+#   start spindle
+#   wait for spindle to be at speed
+#   move Z down to programmed location
+#   resume program
+
+# Software estop sequence - consider all possible scenarios
+#   stop axis movements
+#   activate z brake
+#   stop spindle if spinning
+#   stop any tool change in progress and reset to proper state
+#   what to do during probing
+#   how does the choosen gui connect to physical estop button
+#   For more information on an external E-Stop see the estop_latch man page.
+#   • halui.estop.activate (bit, in) - pin for requesting E-Stop
+#   • halui.estop.is-activated (bit, out) - indicates E-stop reset
+#   • halui.estop.reset (bit, in) - pin for requesting E-Stop reset
+#   Go thru all servo and vfd manuals to look for specific estop instructions
+#   GCode macros to deal with estop situations
+
+# Physical estop sequence - if software or computer fails
+#   physical button also connects to software estop
+#   Use a Safety PLC or NC relay(s) as the estop mechanism, use flyback diodes for inductive loads
+#   Independent system from linuxCNC software
+#   wire NC circuits in series with the "normal" linuxCNC controlled switches/relays
+#   button cuts servo enable signal
+#   button cuts Z brake release signal
+#   button stops spindle - trigger VFD STO (Safe Torque Off). See VFD manual
+#   Safety PLC can allow for more complicated logic, simple relays will work for simple control
+
+# Start sequence
+#   Servo Enable, tie all enable to one output?
+#   VFD enable
+#   Release Z brake, upon reception of HLFB
+#   others...
+
+
+# When LinuxCNC starts, 
+#estop-loopback, false when estop condition exist 
+net estop-loopback iocontrol.0.emc-enable-in <= iocontrol.0.user-enable-out
