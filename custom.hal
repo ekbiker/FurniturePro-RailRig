@@ -39,12 +39,27 @@
 #   Safety PLC can allow for more complicated logic, simple relays will work for simple control
 
 # Start sequence
-#   Servo Enable, tie all enable to one output?
+#   Servo Enable, tie all enable to one output
 #   VFD enable
 #   Release Z brake, upon reception of HLFB
 #   others...
 
 
 # When LinuxCNC starts, 
-#estop-loopback, false when estop condition exist 
-net estop-loopback iocontrol.0.emc-enable-in <= iocontrol.0.user-enable-out
+# signal estop-loopback = false when estop condition exist, goes true when user releases estop in the UI
+# halui.machine.on goes true when user presses Power-on in the UI
+
+
+# Default config from MesaCT
+## E-Stop Chain
+#loadrt estop_latch count=1
+#addf estop-latch.0 servo-thread
+#
+## E-Stop Loop
+#net estop-loopin iocontrol.0.user-enable-out => estop-latch.0.ok-in
+#net estop-loopout estop-latch.0.ok-out => iocontrol.0.emc-enable-in
+#
+## E-Stop Reset
+#net estop-reset <= iocontrol.0.user-request-enable
+#net estop-reset => estop-latch.0.reset
+#net remote-estop0 estop-latch.0.fault-in <= hm2_[MESA](BOARD).0.inmux.00.input-00

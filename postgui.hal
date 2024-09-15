@@ -1,1 +1,24 @@
 # Put HAL commands in this file that you want to run after the GUI loads
+
+
+# Name: enable_machine
+# Type: signal
+# Desc: use to set servos and VFD enable/disable status. 
+#   When both estop-loopback and enable_machine goes true, we want to enable the servos and VFD. 
+#   This is because when physical estop is pressed, it will tell the UI to set estop and cut physical
+#   control signals. If UI is still active when physical estop is pressed, it will put machine into 
+#   estop state and will require power on to turn on the machine.
+net enable_machine <= halui.machine.on
+#   from man page, SSR output: (bit in) out-NN
+#   The state of this SSR instance's NNth output. Set to 0 to make the output pins act like an open 
+#   switch (no connection), set to 1 to make them act like a closed switch.
+net enable_machine => hm2_[MESA](BOARD).0.ssr.00.out-[SSR](ENABLE_MACHINE)
+
+# Name: z_servo_ready
+# Type: signal
+# Desc: When servos are enabled, their coils will energize. We wait for the HLFB from z servo to go true 
+#   to signal "servo ready". Wire the input pin to the z servo HLFB to receive "servo ready" so we can 
+#   release the z brake (energize);
+#   don't forget to protect the SSR with a flyback diode
+net z_servo_ready <= hm2_[MESA](BOARD).0.inmux.00.input-[INMUX](Z_SERVO_READY)
+net z_servo_ready => hm2_[MESA](BOARD).0.ssr.00.out-[SSR](ENERGIZE_Z_BRAKE)
