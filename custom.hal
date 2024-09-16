@@ -14,6 +14,12 @@
 #   move Z down to programmed location
 #   resume program
 
+#        halui.program.pause (bit in)
+#              pin for pausing a program
+#
+#       halui.program.resume (bit in)
+#              pin for resuming a program
+
 # Software estop sequence - consider all possible scenarios
 #   stop axis movements
 #   activate z brake
@@ -47,7 +53,39 @@
 
 # When LinuxCNC starts, 
 # signal estop-loopback = false when estop condition exist, goes true when user releases estop in the UI
-# halui.machine.on goes true when user presses Power-on in the UI
+# halui.machine.is-on goes true when user presses Power-on in the UI
+# NOTE: halui component is not dependent on the display UI. It's meant to connect hardware switches to LNC
+#   and export information to other peripherals. Yeah, the naming is confusing in this time and age.
+#   Consequently, it can be used before the gui.
+#   man halui for more info...
+
+# Name: enable_machine
+# Type: signal
+# Desc: used to set servos and VFD enable/disable status. 
+#   When both estop-loopback and enable_machine goes true, we want to enable the servos and VFD. 
+#   This is because when physical estop is pressed, it will tell the UI to set estop and cut physical
+#   control signals. If UI is still active when physical estop is pressed, it will put machine into 
+#   estop state and will require power on to turn on the machine.
+net enable_machine <= halui.machine.is-on
+
+# Note: SSR Output description
+#   From man page, SSR output: (bit in) out-NN. 
+#   "The state of this SSR instance's NNth output. Set to 0 to make the output pins act like an open 
+#   switch (no connection), set to 1 to make them act like a closed switch."
+#   Yes, the name is 'out', but the direction is 'in'. I'm so confused! This circuit is wired to +24vdc.
+#   All servo enables will be tied together.
+net enable_machine => hm2_[MESA](BOARD).0.ssr.00.out-[SSR](ENABLE_MACHINE)
+
+# Name: z_servo_ready
+# Type: signal
+# Desc: When servos are enabled, their coils will energize. We wait for the HLFB from z servo to go true 
+#   to signal "servo ready". Wire the input pin to the z servo HLFB to receive "servo ready" so we can 
+#   release the z brake (energize).
+#   Don't forget to protect the SSR with a flyback diode
+net z_servo_ready <= hm2_[MESA](BOARD).0.inmux.00.input-[INMUX](Z_SERVO_READY)
+# Brake is wired to +24vdc and will draw 300 ma.  Mesa SSR can take 36V and 2A.
+net z_servo_ready => hm2_[MESA](BOARD).0.ssr.00.out-[SSR](ENERGIZE_Z_BRAKE)
+
 
 
 # Default config from MesaCT
