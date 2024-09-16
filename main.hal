@@ -10,7 +10,9 @@ loadrt [EMCMOT](EMCMOT) servo_period_nsec=[EMCMOT](SERVO_PERIOD) num_joints=[KIN
 
 # hostmot2 driver
 loadrt hostmot2
-loadrt [HM2](DRIVER) board_ip=[HM2](ADDRESS) config="num_encoders=6 num_stepgens=6 sserial_port_0=00000000"
+# TL (9/16/2024): Not using the sserial port right now, so let's not load it by passing 'xxxxxxx0'
+#loadrt [HM2](DRIVER) board_ip=[HM2](ADDRESS) config="num_encoders=6 num_stepgens=6 sserial_port_0=00000000"
+loadrt [HM2](DRIVER) board_ip=[HM2](ADDRESS) config="num_encoders=6 num_stepgens=6 sserial_port_0=xxxxxxx0"
 
 setp hm2_[MESA](BOARD).0.watchdog.timeout_ns 5000000
 
@@ -43,109 +45,102 @@ net motion-enable <= motion.motion-enabled
 
 # Axis: X Joint: 0 Output: 0
 # PID Setup
-setp pid.x.Pgain [JOINT_X](P)
-setp pid.x.Igain [JOINT_X](I)
-setp pid.x.Dgain [JOINT_X](D)
-setp pid.x.bias [JOINT_X](BIAS)
-setp pid.x.FF0 [JOINT_X](FF0)
-setp pid.x.FF1 [JOINT_X](FF1)
-setp pid.x.FF2 [JOINT_X](FF2)
-setp pid.x.deadband [JOINT_X](DEADBAND)
-setp pid.x.maxoutput [JOINT_X](MAX_OUTPUT)
+setp pid.x.Pgain [JOINT_0](P)
+setp pid.x.Igain [JOINT_0](I)
+setp pid.x.Dgain [JOINT_0](D)
+setp pid.x.bias [JOINT_0](BIAS)
+setp pid.x.FF0 [JOINT_0](FF0)
+setp pid.x.FF1 [JOINT_0](FF1)
+setp pid.x.FF2 [JOINT_0](FF2)
+setp pid.x.deadband [JOINT_0](DEADBAND)
+setp pid.x.maxoutput [JOINT_0](MAX_OUTPUT)
 setp pid.x.error-previous-target True
 # limit stepgen velocity corrections caused by position feedback jitter
-setp pid.x.maxerror [JOINT_X](MAX_ERROR)
+setp pid.x.maxerror [JOINT_0](MAX_ERROR)
 
 # joint-0 enable chain
-net joint-0-index-enable <=> pid.x.index-enable
-net joint-0-index-enable <=> joint.0.index-enable
+net joint-[JOINT_NUM](X)-index-enable <=> pid.x.index-enable
+net joint-[JOINT_NUM](X)-index-enable <=> joint.[JOINT_NUM](X).index-enable
 
-net joint-0-enable <= joint.0.amp-enable-out
-net joint-0-enable => pid.x.enable
+net joint-[JOINT_NUM](X)-enable <= joint.[JOINT_NUM](X).amp-enable-out
+net joint-[JOINT_NUM](X)-enable => pid.x.enable
 
-net joint-0-enable => hm2_[MESA](BOARD).0.stepgen.[JOINT_X](MESA_STEPGEN_NUM).enable
+net joint-[JOINT_NUM](X)-enable => hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](X).enable
 
 # Joint 0 Step Generator Settings
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_X](MESA_STEPGEN_NUM).dirsetup [JOINT_X](DIRSETUP)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_X](MESA_STEPGEN_NUM).dirhold [JOINT_X](DIRHOLD)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_X](MESA_STEPGEN_NUM).steplen [JOINT_X](STEPLEN)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_X](MESA_STEPGEN_NUM).stepspace [JOINT_X](STEPSPACE)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_X](MESA_STEPGEN_NUM).position-scale [JOINT_X](SCALE)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_X](MESA_STEPGEN_NUM).maxvel [JOINT_X](STEPGEN_MAX_VEL)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_X](MESA_STEPGEN_NUM).maxaccel [JOINT_X](STEPGEN_MAX_ACC)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_X](MESA_STEPGEN_NUM).step_type 2 # quadrature
-# One step in Mesa is one complete quadrature cycle. ClearPath servos counts 4 for each quadrature 
-# cycle (the rising and falling edges of A and B), so if the encoder resolution is 6,400 (for the 
-# enhanced version of the servos) set the step resolution in MSP to 4x6,400 = 24,800, so that every
-# 4 counts (called 'quad count' in MSP) rotates the motor one encoder tick. Adjust multiplier to
-# account for max rpm limit.
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_X](MESA_STEPGEN_NUM).control-type 1 # velocity mode
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](X).dirsetup [JOINT_0](DIRSETUP)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](X).dirhold [JOINT_0](DIRHOLD)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](X).steplen [JOINT_0](STEPLEN)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](X).stepspace [JOINT_0](STEPSPACE)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](X).position-scale [JOINT_0](SCALE)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](X).maxvel [JOINT_0](STEPGEN_MAX_VEL)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](X).maxaccel [JOINT_0](STEPGEN_MAX_ACC)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](X).step_type 2 # quadrature
+# TL (9/14/2014): One step in Mesa is one complete quadrature cycle. ClearPath servos counts 4 for each quadrature cycle (the rising and falling edges of A and B), so if the encoder resolution is 6,400 (for the enhanced version of the servos) set the step resolution in MSP to 4x6,400 = 24,800, so that every 4 counts (called 'quad count' in MSP) rotates the motor one encoder tick. Due to max rpm limit, if step/rev is set below 4x encoder resolution, just divide by 4 and you get the step/rev on the Mesa/LinuxCNC side.
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](X).control-type 1 # velocity mode
 
 
 # position command and feedback
-net joint-0-pos-cmd <= joint.0.motor-pos-cmd
-net joint-0-pos-cmd => pid.x.command
+net joint-[JOINT_NUM](X)-pos-cmd <= joint.[JOINT_NUM](X).motor-pos-cmd
+net joint-[JOINT_NUM](X)-pos-cmd => pid.x.command
 
-net joint-0-pos-fb <= hm2_[MESA](BOARD).0.stepgen.[JOINT_X](MESA_STEPGEN_NUM).position-fb
-net joint-0-pos-fb => joint.0.motor-pos-fb
-net joint-0-pos-fb => pid.x.feedback
+net joint-[JOINT_NUM](X)-pos-fb <= hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](X).position-fb
+net joint-[JOINT_NUM](X)-pos-fb => joint.[JOINT_NUM](X).motor-pos-fb
+net joint-[JOINT_NUM](X)-pos-fb => pid.x.feedback
 
 # PID Output
-net joint.0.output <= pid.x.output
-net joint.0.output => hm2_[MESA](BOARD).0.stepgen.[JOINT_X](MESA_STEPGEN_NUM).velocity-cmd
+net joint.[JOINT_NUM](X).output <= pid.x.output
+net joint.[JOINT_NUM](X).output => hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](X).velocity-cmd
 
 # Axis: Z Joint: 1 Output: 1
 # PID Setup
-setp pid.z.Pgain [JOINT_Z](P)
-setp pid.z.Igain [JOINT_Z](I)
-setp pid.z.Dgain [JOINT_Z](D)
-setp pid.z.bias [JOINT_Z](BIAS)
-setp pid.z.FF0 [JOINT_Z](FF0)
-setp pid.z.FF1 [JOINT_Z](FF1)
-setp pid.z.FF2 [JOINT_Z](FF2)
-setp pid.z.deadband [JOINT_Z](DEADBAND)
-setp pid.z.maxoutput [JOINT_Z](MAX_OUTPUT)
+setp pid.z.Pgain [JOINT_1](P)
+setp pid.z.Igain [JOINT_1](I)
+setp pid.z.Dgain [JOINT_1](D)
+setp pid.z.bias [JOINT_1](BIAS)
+setp pid.z.FF0 [JOINT_1](FF0)
+setp pid.z.FF1 [JOINT_1](FF1)
+setp pid.z.FF2 [JOINT_1](FF2)
+setp pid.z.deadband [JOINT_1](DEADBAND)
+setp pid.z.maxoutput [JOINT_1](MAX_OUTPUT)
 setp pid.z.error-previous-target True
 # limit stepgen velocity corrections caused by position feedback jitter
-setp pid.z.maxerror [JOINT_Z](MAX_ERROR)
+setp pid.z.maxerror [JOINT_1](MAX_ERROR)
 
-# joint-1 enable chain
-net joint-1-index-enable <=> pid.z.index-enable
-net joint-1-index-enable <=> joint.1.index-enable
+# joint-Z enable chain
+net joint-[JOINT_NUM](Z)-index-enable <=> pid.z.index-enable
+net joint-[JOINT_NUM](Z)-index-enable <=> joint.[JOINT_NUM](Z).index-enable
 
-net joint-1-enable <= joint.1.amp-enable-out
-net joint-1-enable => pid.z.enable
+net joint-[JOINT_NUM](Z)-enable <= joint.[JOINT_NUM](Z).amp-enable-out
+net joint-[JOINT_NUM](Z)-enable => pid.z.enable
 
-net joint-1-enable => hm2_[MESA](BOARD).0.stepgen.[JOINT_Z](MESA_STEPGEN_NUM).enable
+net joint-[JOINT_NUM](Z)-enable => hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).enable
 
-# Joint 1 Step Generator Settings
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_Z](MESA_STEPGEN_NUM).dirsetup [JOINT_Z](DIRSETUP)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_Z](MESA_STEPGEN_NUM).dirhold [JOINT_Z](DIRHOLD)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_Z](MESA_STEPGEN_NUM).steplen [JOINT_Z](STEPLEN)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_Z](MESA_STEPGEN_NUM).stepspace [JOINT_Z](STEPSPACE)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_Z](MESA_STEPGEN_NUM).position-scale [JOINT_Z](SCALE)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_Z](MESA_STEPGEN_NUM).maxvel [JOINT_Z](STEPGEN_MAX_VEL)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_Z](MESA_STEPGEN_NUM).maxaccel [JOINT_Z](STEPGEN_MAX_ACC)
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_Z](MESA_STEPGEN_NUM).step_type 2 # quadrature
-# One step in Mesa is one complete quadrature cycle. ClearPath servos counts 4 for each quadrature 
-# cycle (the rising and falling edges of A and B), so if the encoder resolution is 6,400 (for the 
-# enhanced version of the servos) set the step resolution in MSP to 4x6,400 = 24,800, so that every
-# 4 counts (called 'quad count' in MSP) rotates the motor one encoder tick. Adjust multiplier to
-# account for max rpm limit.
-setp hm2_[MESA](BOARD).0.stepgen.[JOINT_Z](MESA_STEPGEN_NUM).control-type 1 # velocity mode
+# Joint Z Step Generator Settings
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).dirsetup [JOINT_1](DIRSETUP)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).dirhold [JOINT_1](DIRHOLD)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).steplen [JOINT_1](STEPLEN)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).stepspace [JOINT_1](STEPSPACE)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).position-scale [JOINT_1](SCALE)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).maxvel [JOINT_1](STEPGEN_MAX_VEL)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).maxaccel [JOINT_1](STEPGEN_MAX_ACC)
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).step_type 2 # quadrature
+# TL (9/14/2014): One step in Mesa is one complete quadrature cycle. ClearPath servos counts 4 for each quadrature cycle (the rising and falling edges of A and B), so if the encoder resolution is 6,400 (for the enhanced version of the servos) set the step resolution in MSP to 4x6,400 = 24,800, so that every 4 counts (called 'quad count' in MSP) rotates the motor one encoder tick. Due to max rpm limit, if step/rev is set below 4x encoder resolution, just divide by 4 and you get the step/rev on the Mesa/LinuxCNC side.
+
+setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).control-type 1 # velocity mode
 
 
 # position command and feedback
-net joint-1-pos-cmd <= joint.1.motor-pos-cmd
-net joint-1-pos-cmd => pid.z.command
+net joint-[JOINT_NUM](Z)-pos-cmd <= joint.[JOINT_NUM](Z).motor-pos-cmd
+net joint-[JOINT_NUM](Z)-pos-cmd => pid.z.command
 
-net joint-1-pos-fb <= hm2_[MESA](BOARD).0.stepgen.[JOINT_Z](MESA_STEPGEN_NUM).position-fb
-net joint-1-pos-fb => joint.1.motor-pos-fb
-net joint-1-pos-fb => pid.z.feedback
+net joint-[JOINT_NUM](Z)-pos-fb <= hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).position-fb
+net joint-[JOINT_NUM](Z)-pos-fb => joint.[JOINT_NUM](Z).motor-pos-fb
+net joint-[JOINT_NUM](Z)-pos-fb => pid.z.feedback
 
 # PID Output
-net joint.1.output <= pid.z.output
-net joint.1.output => hm2_[MESA](BOARD).0.stepgen.[JOINT_Z](MESA_STEPGEN_NUM).velocity-cmd
+net joint.[JOINT_NUM](Z).output <= pid.z.output
+net joint.[JOINT_NUM](Z).output => hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).velocity-cmd
 
 # Standard I/O Block - EStop, Etc
 # create a signal for the estop loopback

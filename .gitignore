@@ -9,3 +9,6 @@ autosave.halscope
 resources*
 .vcp*
 .vscode*
+*.preferences
+qtdragon*
+*.dat
