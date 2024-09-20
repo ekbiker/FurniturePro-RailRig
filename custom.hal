@@ -71,12 +71,10 @@ net enable_machine => hm2_[MESA](BOARD).0.ssr.00.out-[SSR](ENABLE_MACHINE) # in
 
 # Name: z_hlfb_servo_ready
 # Type: signal
-# Desc: When servos are enabled, their coils will energize. We wait for the HLFB from z servo to go true to signal "servo ready". Wire the z servo HLFB to receive "servo ready" so we can release the z brake (energize). Here, HLFB is the output.
+# Desc: When servos are enabled, their coils will energize. We wait for the HLFB from z servo to go true to signal "servo ready". Wire the z servo HLFB to receive "servo ready" so we can release (energize) the z brake. Here, HLFB is the output.
 net z_hlfb_servo_ready => hm2_[MESA](BOARD).0.inmux.00.input-[INMUX](Z_SERVO_READY)
-# Brake is wired to +24vdc and will draw 300 ma.  Mesa SSR can take 36V and 2A. Don't forget to protect the SSR with a flyback diode
+# Brake is wired to +24vdc and will draw 300 ma.  Mesa SSR can take 36V and 2A. Don't forget to protect the SSR with a flyback diode. Out-nn isn't a physical pin. The physical pins are out+ and out-.
 net z_hlfb_servo_ready => hm2_[MESA](BOARD).0.ssr.00.out-[SSR](ENERGIZE_Z_BRAKE) # in
-
-
 
 # Default config from MesaCT
 ## E-Stop Chain
@@ -91,3 +89,15 @@ net z_hlfb_servo_ready => hm2_[MESA](BOARD).0.ssr.00.out-[SSR](ENERGIZE_Z_BRAKE)
 #net estop-reset <= iocontrol.0.user-request-enable
 #net estop-reset => estop-latch.0.reset
 #net remote-estop0 estop-latch.0.fault-in <= hm2_[MESA](BOARD).0.inmux.00.input-00
+
+# Spindle case pressure
+#   We need case pressure of at least 30 psi when cutting fine wood material (MDF) or when mist or flood collant is on. We don't want the spindle to suck in stuff that will contaminate it. The case pressure is constantly on and the spindle will hiss.
+#   Do we want separate logic, or do we want to look for mist/flood collant in G-code and turn on case pressure. Or just leave it on and get a big aux air tank. Or turn it on manually.
+
+# CNCDepot Control box
+# - It seems the solenoid inputs will take 5v. The pins (not labeled) goes to a pair of DIN rail relays which turn on/off 24vdc to the pneumatic valves. We can probably drive these pins with Mesa's SSR @ 5V. Additionaly, there is a connection wire from the base of the solenoids to DI7 input of the VFD (don't know what that does, will have to check the VFD menu to find what function it is set at). DI7 is one of the multi-fuction inputs.
+# - there appears to be no separate case pressure regulation (min 30 psi), we can add a regulator to the case pressure output.
+# - Output of VFD R1O/R1C (Relay 1 Normally Open/Relay Com) is connected to Pins 1 & 2 and labeled VFD fault. Don't hook anything up to this until we can verify what this signal is and what are the electrical characteristics. According to Avid docs, there is some special processing for this signal.
+
+# QtDragon spindle speed display and spindle-at-speed LED require that spindle.0.speed-in be connected to spindle speed feedback. Encoder or VFD feedback could be used, as long as the feedback is in revolutions per second (RPS).If no feedback is available you can have the display show the requested speed by connecting pins like so:
+net spindle-speed-feedback spindle.0.speed-out-rps => spindle.0.speed-in

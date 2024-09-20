@@ -6,17 +6,18 @@
 loadrt [KINS](KINEMATICS)
 
 # motion controller
+# TL (9/20/2024): Seems default num_spindles = 1
 loadrt [EMCMOT](EMCMOT) servo_period_nsec=[EMCMOT](SERVO_PERIOD) num_joints=[KINS](JOINTS)
 
 # hostmot2 driver
 loadrt hostmot2
 # TL (9/16/2024): Not using the sserial port right now, so let's not load it by passing 'xxxxxxx0'
 #loadrt [HM2](DRIVER) board_ip=[HM2](ADDRESS) config="num_encoders=6 num_stepgens=6 sserial_port_0=00000000"
-loadrt [HM2](DRIVER) board_ip=[HM2](ADDRESS) config="num_encoders=6 num_stepgens=6 sserial_port_0=xxxxxxx0"
+loadrt [HM2](DRIVER) board_ip=[HM2](ADDRESS) config="num_encoders=6 num_stepgens=6 num_pwmgens=1 sserial_port_0=xxxxxxx0"
 
 setp hm2_[MESA](BOARD).0.watchdog.timeout_ns 5000000
 
-loadrt pid names=pid.x,pid.z
+loadrt pid names=pid.x,pid.z,pid.s
 
 # PID Information for Stepper Boards
 # Mesa hardware step generators at every servo thread invocation, the step
@@ -32,6 +33,8 @@ addf motion-command-handler servo-thread
 addf motion-controller servo-thread
 addf pid.x.do-pid-calcs servo-thread
 addf pid.z.do-pid-calcs servo-thread
+addf pid.s.do-pid-calcs servo-thread
+
 addf hm2_[MESA](BOARD).0.write servo-thread
 
 # DPLL TIMER
@@ -107,7 +110,7 @@ setp pid.z.error-previous-target True
 # limit stepgen velocity corrections caused by position feedback jitter
 setp pid.z.maxerror [JOINT_1](MAX_ERROR)
 
-# joint-Z enable chain
+# joint-1 enable chain
 net joint-[JOINT_NUM](Z)-index-enable <=> pid.z.index-enable
 net joint-[JOINT_NUM](Z)-index-enable <=> joint.[JOINT_NUM](Z).index-enable
 
@@ -116,7 +119,7 @@ net joint-[JOINT_NUM](Z)-enable => pid.z.enable
 
 net joint-[JOINT_NUM](Z)-enable => hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).enable
 
-# Joint Z Step Generator Settings
+# Joint 1 Step Generator Settings
 setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).dirsetup [JOINT_1](DIRSETUP)
 setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).dirhold [JOINT_1](DIRHOLD)
 setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).steplen [JOINT_1](STEPLEN)
@@ -129,7 +132,6 @@ setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).step_type 2 # quadrature
 
 setp hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).control-type 1 # velocity mode
 
-
 # position command and feedback
 net joint-[JOINT_NUM](Z)-pos-cmd <= joint.[JOINT_NUM](Z).motor-pos-cmd
 net joint-[JOINT_NUM](Z)-pos-cmd => pid.z.command
@@ -141,6 +143,40 @@ net joint-[JOINT_NUM](Z)-pos-fb => pid.z.feedback
 # PID Output
 net joint.[JOINT_NUM](Z).output <= pid.z.output
 net joint.[JOINT_NUM](Z).output => hm2_[MESA](BOARD).0.stepgen.[STEPGEN_NUM](Z).velocity-cmd
+
+# Spindle PID Setup
+setp pid.s.Pgain [SPINDLE_0](P)
+setp pid.s.Igain [SPINDLE_0](I)
+setp pid.s.Dgain [SPINDLE_0](D)
+setp pid.s.bias [SPINDLE_0](BIAS)
+setp pid.s.FF0 [SPINDLE_0](FF0)
+setp pid.s.FF1 [SPINDLE_0](FF1)
+setp pid.s.FF2 [SPINDLE_0](FF2)
+setp pid.s.deadband [SPINDLE_0](DEADBAND)
+setp pid.s.maxoutput [SPINDLE_0](MAX_OUTPUT)
+setp pid.s.error-previous-target true
+
+# Spindle PWM Setup
+setp hm2_[MESA](BOARD).0.pwmgen.00.output-type [SPINDLE_0](PWM_TYPE)
+setp hm2_[MESA](BOARD).0.pwmgen.pwm_frequency [SPINDLE_0](PWM_FREQUENCY)
+setp hm2_[MESA](BOARD).0.pwmgen.00.scale [SPINDLE_0](MAX_OUTPUT)
+
+# Spindle Enable
+net spindle-on <= spindle.0.on
+net spindle-on => pid.s.enable
+net spindle-on => hm2_[MESA](BOARD).0.pwmgen.00.enable
+
+# Spindle Connections
+net spindle-vel-cmd <= spindle.0.speed-out-abs
+net spindle-vel-cmd => pid.s.command
+# TL (9/20/2024): added this for debugging, basically takes pid out of the loop
+net spindle-vel-cmd => hm2_[MESA](BOARD).0.pwmgen.00.value
+
+net spindle-pid-out <= pid.s.output
+#net spindle-pid-out => hm2_[MESA](BOARD).0.pwmgen.00.value
+
+# Spindle Feedback
+setp spindle.0.at-speed true
 
 # Standard I/O Block - EStop, Etc
 # create a signal for the estop loopback
