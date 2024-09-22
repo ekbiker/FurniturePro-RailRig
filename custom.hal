@@ -51,6 +51,10 @@
 #   others...
 
 
+################################################################################
+# Machine Eable                                                                #
+################################################################################
+
 # When LinuxCNC starts, 
 # signal estop-loopback = false when estop condition exist, goes true when user releases estop in the UI
 # halui.machine.is-on goes true when user presses Power-on in the UI
@@ -61,8 +65,7 @@
 
 # Name: enable_machine
 # Type: signal
-# Desc: used to set servos and VFD enable/disable status. 
-# When both estop-loopback and enable_machine goes true, we want to enable the servos and VFD. This is because when physical estop is pressed, it will tell the UI to set estop and cut physical control signals. If UI is still active when physical estop is pressed, it will put machine into estop state and will require power on to turn on the machine.
+# Desc: used to set servos and VFD enable/disable status. When both estop-loopback and enable_machine goes true, we want to enable the servos and VFD. This is because when physical estop is pressed, it will tell the UI to set estop and cut physical control signals. If UI is still active when physical estop is pressed, it will put machine into estop state and will require power on to turn on the machine.
 net enable_machine <= halui.machine.is-on
 
 # Note: SSR Output description
@@ -75,6 +78,46 @@ net enable_machine => hm2_[MESA](BOARD).0.ssr.00.out-[SSR](ENABLE_MACHINE) # in
 net z_hlfb_servo_ready => hm2_[MESA](BOARD).0.inmux.00.input-[INMUX](Z_SERVO_READY)
 # Brake is wired to +24vdc and will draw 300 ma.  Mesa SSR can take 36V and 2A. Don't forget to protect the SSR with a flyback diode. Out-nn isn't a physical pin. The physical pins are out+ and out-.
 net z_hlfb_servo_ready => hm2_[MESA](BOARD).0.ssr.00.out-[SSR](ENERGIZE_Z_BRAKE) # in
+
+
+################################################################################
+# Spindle Control Setup (QTDragon_hd & SpinX1a)                                #
+################################################################################
+
+# QtDragon spindle speed display and spindle-at-speed LED require that spindle.0.speed-in be connected to spindle speed feedback. Encoder or VFD feedback could be used, as long as the feedback is in revolutions per second (RPS).If no feedback is available you can have the display show the requested speed by connecting pins like so:
+net spindle-speed-feedback spindle.0.speed-out-rps => spindle.0.speed-in
+
+# Made custom style sheet for QTdragon_hd for incremental speed bumps from the UI. This file is at ...
+#   CONFIG_DIR/qtvcp/screens/qtdragon_hd/added_spindle_incremental_speed.qss 
+# copy using sudo cp ... to 
+#   /usr/share/qtvcp/screens/qtdragon_hd/added_spindle_incremental_speed.qss
+# for it to take effect.
+
+# use a couple of GPIO's on the 7i75 BOB protection board to control the SPINX1A. Physical pin mapping is confusing, read the user manuals carefully.
+#P1-02/DB25-14          42   IOPort       None      [5ABOB](SPINX_ENABLE)
+#P1-04/DB25-15          44   IOPort       None      [5ABOB](SPINX_DIRECTION)
+#hm2_<BoardType>.<BoardNum>.gpio.<IONum>
+#SPINX1A TB1 pin4 ENABLE (ACTIVE LOW)
+#SPINX1A TB1 pin5 DIR HIGH = (CW)
+setp hm2_[MESA](BOARD).0.gpio.[5ABOB](SPINX_ENABLE).is_output true
+setp hm2_[MESA](BOARD).0.gpio.[5ABOB](SPINX_ENABLE).invert_output true
+net enable_machine => hm2_[MESA](BOARD).0.gpio.[5ABOB](SPINX_ENABLE).out #in
+
+# Hardwire CW rotation??  What's the logic for rotation direction? I think we might need CCW only for Reineshaw touch off tool where you spin the spindle backwards to touch off the tool. But that's probably something we'll never need to implement.
+#spindle.M.forward OUT BIT - TRUE when the spindle should rotate forward.
+#spindle.M.reverse OUT BIT - TRUE when the spindle should rotate backward.
+setp hm2_[MESA](BOARD).0.gpio.[5ABOB](SPINX_DIRECTION).is_output true #CW=high, CCW=low
+net rotation_direction spindle.0.forward => hm2_[MESA](BOARD).0.gpio.[5ABOB](SPINX_DIRECTION).out #in
+
+# Spindle case pressure
+#   We need case pressure of at least 30 psi when cutting fine wood material (MDF) or when mist or flood collant is on. We don't want the spindle to suck in stuff that will contaminate it. The case pressure is constantly on and the spindle will hiss.
+#   Do we want separate logic, or do we want to look for mist/flood collant in G-code and turn on case pressure. Or just leave it on and get a big aux air tank. Or turn it on manually.
+
+# CNCDepot Control box
+# - It seems the solenoid inputs will take 5v. The pins (not labeled) goes to a pair of DIN rail relays which turn on/off 24vdc to the pneumatic valves. We can probably drive these pins with Mesa's SSR @ 5V. Additionaly, there is a connection wire from the base of the solenoids to DI7 input of the VFD (don't know what that does, will have to check the VFD menu to find what function it is set at). DI7 is one of the multi-fuction inputs.
+# - there appears to be no separate case pressure regulation (min 30 psi), we can add a regulator to the case pressure output.
+# - Output of VFD R1O/R1C (Relay 1 Normally Open/Relay Com) is connected to Pins 1 & 2 and labeled VFD fault. Don't hook anything up to this until we can verify what this signal is and what are the electrical characteristics. According to Avid docs, there is some special processing for this signal.
+
 
 # Default config from MesaCT
 ## E-Stop Chain
@@ -89,15 +132,3 @@ net z_hlfb_servo_ready => hm2_[MESA](BOARD).0.ssr.00.out-[SSR](ENERGIZE_Z_BRAKE)
 #net estop-reset <= iocontrol.0.user-request-enable
 #net estop-reset => estop-latch.0.reset
 #net remote-estop0 estop-latch.0.fault-in <= hm2_[MESA](BOARD).0.inmux.00.input-00
-
-# Spindle case pressure
-#   We need case pressure of at least 30 psi when cutting fine wood material (MDF) or when mist or flood collant is on. We don't want the spindle to suck in stuff that will contaminate it. The case pressure is constantly on and the spindle will hiss.
-#   Do we want separate logic, or do we want to look for mist/flood collant in G-code and turn on case pressure. Or just leave it on and get a big aux air tank. Or turn it on manually.
-
-# CNCDepot Control box
-# - It seems the solenoid inputs will take 5v. The pins (not labeled) goes to a pair of DIN rail relays which turn on/off 24vdc to the pneumatic valves. We can probably drive these pins with Mesa's SSR @ 5V. Additionaly, there is a connection wire from the base of the solenoids to DI7 input of the VFD (don't know what that does, will have to check the VFD menu to find what function it is set at). DI7 is one of the multi-fuction inputs.
-# - there appears to be no separate case pressure regulation (min 30 psi), we can add a regulator to the case pressure output.
-# - Output of VFD R1O/R1C (Relay 1 Normally Open/Relay Com) is connected to Pins 1 & 2 and labeled VFD fault. Don't hook anything up to this until we can verify what this signal is and what are the electrical characteristics. According to Avid docs, there is some special processing for this signal.
-
-# QtDragon spindle speed display and spindle-at-speed LED require that spindle.0.speed-in be connected to spindle speed feedback. Encoder or VFD feedback could be used, as long as the feedback is in revolutions per second (RPS).If no feedback is available you can have the display show the requested speed by connecting pins like so:
-net spindle-speed-feedback spindle.0.speed-out-rps => spindle.0.speed-in
